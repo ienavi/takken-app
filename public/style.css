@@ -254,3 +254,19 @@ h1 {
     font-size: 16px;
   }
 }
+.logout-btn {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 13px;
+  margin-top: 18px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  background: #b94a48;
+  color: white;
+}
+
+.logout-btn:hover {
+  opacity: 0.9;
+}
