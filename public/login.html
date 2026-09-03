@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>宅建アプリ ログイン</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Yu Gothic", "Meiryo", sans-serif;
+      background: #f5efe4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #2f2a26;
+    }
+
+    .login-card {
+      width: min(420px, calc(100% - 32px));
+      background: rgba(255, 252, 246, 0.96);
+      border-radius: 22px;
+      padding: 32px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.18);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      color: #2c2b58;
+      font-size: 30px;
+      text-align: center;
+    }
+
+    .sub {
+      text-align: center;
+      color: #666;
+      margin-bottom: 28px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin: 16px 0 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid #d7c8b3;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 24px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #34365f;
+      color: white;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    .error {
+      margin-top: 16px;
+      color: #a5281d;
+      font-weight: bold;
+      text-align: center;
+      min-height: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <h1>宅建アプリ</h1>
+    <p class="sub">ログインしてください</p>
+
+    <form id="loginForm">
+      <label for="username">ID</label>
+      <input id="username" name="username" type="text" autocomplete="username" required />
+
+      <label for="password">パスワード</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required />
+
+      <button type="submit">ログイン</button>
+
+      <div id="errorMessage" class="error"></div>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const errorMessage = document.getElementById("errorMessage");
+      errorMessage.textContent = "";
+
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            username,
+            password
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          errorMessage.textContent = data.message || "ログインに失敗しました。";
+          return;
+        }
+
+        window.location.href = "/index.html";
+      } catch (error) {
+        errorMessage.textContent = "通信エラーが発生しました。";
+      }
+    });
+  </script>
+</body>
+</html>
