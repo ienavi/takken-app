@@ -93,11 +93,44 @@ app.use(
   })
 );
 
+function requireLogin(req, res, next) {
+  if (req.session.user) {
+    return next();
+  }
+
+  if (req.method === "GET") {
+    return res.redirect("/");
+  }
+
+  return res.status(401).json({
+    ok: false,
+    message: "ログインが必要です。"
+  });
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.session.user) {
+    return res.status(401).json({
+      ok: false,
+      message: "ログインが必要です。"
+    });
+  }
+
+  if (req.session.user.role !== "admin") {
+    return res.status(403).json({
+      ok: false,
+      message: "管理者のみ利用できます。"
+    });
+  }
+
+  next();
+}
+
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     message: "takken-app is running",
-    database: pool ? "connected setting exists" : "DATABASE_URL not set"
+    database: pool ? "DATABASE_URL set" : "DATABASE_URL not set"
   });
 });
 
@@ -115,6 +148,14 @@ app.get("/login.html", (req, res) => {
   }
 
   res.sendFile(path.join(PUBLIC_DIR, "login.html"));
+});
+
+app.get("/admin.html", requireLogin, (req, res) => {
+  if (req.session.user.role !== "admin") {
+    return res.status(403).send("管理者のみ利用できます。");
+  }
+
+  res.sendFile(path.join(PUBLIC_DIR, "admin.html"));
 });
 
 app.post("/api/login", (req, res) => {
@@ -177,21 +218,6 @@ app.get("/logout", (req, res) => {
     res.redirect("/");
   });
 });
-
-function requireLogin(req, res, next) {
-  if (req.session.user) {
-    return next();
-  }
-
-  if (req.method === "GET") {
-    return res.redirect("/");
-  }
-
-  return res.status(401).json({
-    ok: false,
-    message: "ログインが必要です。"
-  });
-}
 
 app.post("/api/results", requireLogin, async (req, res) => {
   if (!pool) {
@@ -284,6 +310,72 @@ app.get("/api/results", requireLogin, async (req, res) => {
     res.status(500).json({
       ok: false,
       message: "成績取得に失敗しました。"
+    });
+  }
+});
+
+app.get("/api/admin/summary", requireAdmin, async (req, res) => {
+  if (!pool) {
+    return res.status(500).json({
+      ok: false,
+      message: "DATABASE_URLが設定されていません。"
+    });
+  }
+
+  try {
+    const usersSummary = await pool.query(`
+      SELECT
+        username,
+        COALESCE(MAX(name), username) AS name,
+        COUNT(*) AS quiz_count,
+        SUM(total) AS total_answered,
+        SUM(correct) AS total_correct,
+        ROUND((SUM(correct)::decimal / NULLIF(SUM(total), 0)) * 100) AS average_percent,
+        MAX(created_at) AS last_played_at
+      FROM quiz_results
+      GROUP BY username
+      ORDER BY last_played_at DESC
+    `);
+
+    const recentResults = await pool.query(`
+      SELECT
+        id,
+        username,
+        name,
+        total,
+        correct,
+        percent,
+        created_at
+      FROM quiz_results
+      ORDER BY created_at DESC
+      LIMIT 50
+    `);
+
+    const weakQuestions = await pool.query(`
+      SELECT
+        question_id,
+        year,
+        question_no,
+        category,
+        COUNT(*) AS wrong_count
+      FROM answer_logs
+      WHERE correct = false
+      GROUP BY question_id, year, question_no, category
+      ORDER BY wrong_count DESC
+      LIMIT 20
+    `);
+
+    res.json({
+      ok: true,
+      usersSummary: usersSummary.rows,
+      recentResults: recentResults.rows,
+      weakQuestions: weakQuestions.rows
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      ok: false,
+      message: "管理者データの取得に失敗しました。"
     });
   }
 });
