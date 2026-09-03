@@ -7,9 +7,29 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
 
-const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const SESSION_SECRET = process.env.SESSION_SECRET || "change-this-secret";
+
+// 複数ユーザー設定
+// Renderの環境変数 APP_USERS にJSON形式で登録します
+function getUsers() {
+  try {
+    if (process.env.APP_USERS) {
+      return JSON.parse(process.env.APP_USERS);
+    }
+  } catch (error) {
+    console.error("APP_USERSの形式が正しくありません。", error);
+  }
+
+  // 予備：APP_USERSが未設定の場合は従来のadminログインを使う
+  return [
+    {
+      username: process.env.ADMIN_USER || "admin",
+      password: process.env.ADMIN_PASSWORD || "",
+      role: "admin",
+      name: "管理者"
+    }
+  ];
+}
 
 app.set("trust proxy", 1);
 
@@ -31,7 +51,6 @@ app.use(
   })
 );
 
-// 動作確認用
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -39,7 +58,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ログイン画面
 app.get("/", (req, res) => {
   if (req.session.user) {
     return res.redirect("/index.html");
@@ -56,36 +74,36 @@ app.get("/login.html", (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "login.html"));
 });
 
-// ログイン処理
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
 
-  if (!ADMIN_PASSWORD) {
-    return res.status(500).json({
+  const users = getUsers();
+
+  const user = users.find(
+    u => u.username === username && u.password === password
+  );
+
+  if (!user) {
+    return res.status(401).json({
       ok: false,
-      message: "Render側にADMIN_PASSWORDが設定されていません。"
+      message: "IDまたはパスワードが違います。"
     });
   }
 
-  if (username === ADMIN_USER && password === ADMIN_PASSWORD) {
-    req.session.user = {
-      username: ADMIN_USER,
-      loginAt: new Date().toISOString()
-    };
+  req.session.user = {
+    username: user.username,
+    role: user.role || "user",
+    name: user.name || user.username,
+    loginAt: new Date().toISOString()
+  };
 
-    return res.json({
-      ok: true,
-      message: "ログイン成功"
-    });
-  }
-
-  return res.status(401).json({
-    ok: false,
-    message: "IDまたはパスワードが違います。"
+  return res.json({
+    ok: true,
+    message: "ログイン成功",
+    user: req.session.user
   });
 });
 
-// ログイン状態確認
 app.get("/api/me", (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({
@@ -100,7 +118,6 @@ app.get("/api/me", (req, res) => {
   });
 });
 
-// ログアウト
 app.post("/api/logout", (req, res) => {
   req.session.destroy(() => {
     res.clearCookie("takken.sid");
@@ -118,7 +135,6 @@ app.get("/logout", (req, res) => {
   });
 });
 
-// ここから下はログイン必須
 function requireLogin(req, res, next) {
   if (req.session.user) {
     return next();
