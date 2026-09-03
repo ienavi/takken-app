@@ -348,3 +348,20 @@ function shuffle(array) {
 function normalize(value) {
   return String(value || "").trim().replace(/\s/g, "");
 }
+async function logout() {
+  const result = confirm("ログアウトしますか？");
+
+  if (!result) {
+    return;
+  }
+
+  try {
+    await fetch("/api/logout", {
+      method: "POST"
+    });
+
+    window.location.href = "/";
+  } catch (error) {
+    alert("ログアウトに失敗しました。");
+  }
+}
