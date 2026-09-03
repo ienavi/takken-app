@@ -45,6 +45,11 @@ async function loadLoginUser() {
   if (resultUserText) {
     resultUserText.textContent = `ログイン中：${userLabel}`;
   }
+  const adminBtn = document.getElementById("adminBtn");
+
+if (adminBtn && currentUser.role === "admin") {
+  adminBtn.classList.remove("hidden");
+}
 }
 
 function getUserKey(baseKey) {
