@@ -1,14 +1,103 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>宅建アプリ</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>宅建クイズアプリ</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <h1>宅建アプリ</h1>
-  <p>Renderで表示できています。</p>
+  <div id="app">
+    <section id="menuScreen" class="screen active">
+      <div class="menu-card">
+        <h1>宅建問題</h1>
+        <p class="sub">学習モードを選択</p>
 
-  <img src="./menu_exact.png" style="max-width: 400px; width: 100%;">
+        <button class="main-btn blue" onclick="startQuiz('random50')">
+          常時ランダム50問
+        </button>
+
+        <button class="main-btn blue" onclick="startQuiz('random10')">
+          ランダム10問
+        </button>
+
+        <p class="section-title">分野別10問</p>
+
+        <button class="main-btn wood" onclick="startQuiz('category', '権利関係')">
+          権利関係 10問
+        </button>
+
+        <button class="main-btn wood" onclick="startQuiz('category', '宅建業法')">
+          宅建業法 10問
+        </button>
+
+        <button class="main-btn wood" onclick="startQuiz('category', '法令上の制限')">
+          法令上の制限 10問
+        </button>
+
+        <button class="main-btn wood" onclick="startQuiz('category', '税・その他')">
+          税・その他 10問
+        </button>
+
+        <button class="main-btn wood" onclick="showResultScreen()">
+          成績
+        </button>
+      </div>
+    </section>
+
+    <section id="quizScreen" class="screen">
+      <div class="quiz-card">
+        <div class="top-bar">
+          <button class="small-btn" onclick="backToMenu()">メニュー</button>
+          <div id="progressText">1 / 10</div>
+        </div>
+
+        <div class="meta">
+          <span id="categoryText"></span>
+          <span id="yearText"></span>
+        </div>
+
+        <h2 id="questionTitle">問題</h2>
+
+        <div id="questionImageWrap" class="image-wrap hidden">
+          <img id="questionImage" src="" alt="問題画像" />
+        </div>
+
+        <p id="promptText" class="prompt"></p>
+
+        <div id="choices" class="choices"></div>
+
+        <div id="judgeBox" class="judge hidden"></div>
+
+        <button id="explainBtn" class="sub-btn hidden" onclick="toggleExplanation()">
+          解説を見る
+        </button>
+
+        <div id="explanationBox" class="explanation hidden"></div>
+
+        <button id="nextBtn" class="next-btn hidden" onclick="nextQuestion()">
+          次の問題へ
+        </button>
+      </div>
+    </section>
+
+    <section id="resultScreen" class="screen">
+      <div class="result-card">
+        <h1>成績</h1>
+
+        <div id="resultSummary" class="result-summary"></div>
+
+        <button class="main-btn blue" onclick="startQuiz('random10')">
+          もう一度ランダム10問
+        </button>
+
+        <button class="main-btn wood" onclick="backToMenu()">
+          メニューへ戻る
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <script src="./script.js"></script>
 </body>
 </html>
