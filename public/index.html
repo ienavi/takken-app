@@ -10,6 +10,11 @@
   <div id="app">
     <section id="menuScreen" class="screen active">
       <div class="menu-card">
+        <div class="user-info">
+          <span id="loginUserText">ログイン中</span>
+          <button class="mini-logout-btn" onclick="logout()">ログアウト</button>
+        </div>
+
         <h1>宅建問題</h1>
         <p class="sub">学習モードを選択</p>
 
@@ -42,9 +47,6 @@
         <button class="main-btn wood" onclick="showResultScreen()">
           成績
         </button>
-        <button class="logout-btn" onclick="logout()">
- 　　　　 ログアウト
-　　　　</button>
       </div>
     </section>
 
@@ -86,6 +88,11 @@
 
     <section id="resultScreen" class="screen">
       <div class="result-card">
+        <div class="user-info">
+          <span id="resultUserText">ログイン中</span>
+          <button class="mini-logout-btn" onclick="logout()">ログアウト</button>
+        </div>
+
         <h1>成績</h1>
 
         <div id="resultSummary" class="result-summary"></div>
