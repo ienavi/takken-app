@@ -5,6 +5,7 @@ let correctCount = 0;
 let answered = false;
 let currentChoices = [];
 let currentUser = null;
+let currentQuizAnswers = [];
 
 const CSV_PATH = "./questions.csv";
 const IMAGE_DIR = "./question_images/";
@@ -139,6 +140,7 @@ function startQuiz(mode, category = null) {
   currentIndex = 0;
   correctCount = 0;
   answered = false;
+  currentQuizAnswers = [];
 
   showScreen("quizScreen");
   showQuestion();
@@ -296,40 +298,168 @@ function nextQuestion() {
   }
 }
 
-function finishQuiz() {
+async function finishQuiz() {
   const percent = Math.round((correctCount / quizQuestions.length) * 100);
 
-  const history = getHistory();
-
-  history.push({
+  const summary = {
     date: new Date().toLocaleString("ja-JP"),
     username: currentUser ? currentUser.username : "",
     name: currentUser ? currentUser.name : "",
     total: quizQuestions.length,
     correct: correctCount,
     percent
-  });
+  };
 
-  localStorage.setItem(getUserKey("takken_history"), JSON.stringify(history.slice(-50)));
+  saveLocalQuizSummary(summary);
+
+  try {
+    await saveQuizResultToServer(summary, currentQuizAnswers);
+  } catch (error) {
+    console.error(error);
+    alert("サーバー保存に失敗しました。ブラウザ内には保存されています。");
+  }
 
   showResultScreen();
 }
 
-function showResultScreen() {
+async function saveQuizResultToServer(summary, answers) {
+  const response = await fetch("/api/results", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      total: summary.total,
+      correct: summary.correct,
+      percent: summary.percent,
+      answers: answers
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.ok) {
+    throw new Error(data.message || "成績保存に失敗しました。");
+  }
+
+  return data;
+}
+
+async function showResultScreen() {
   showScreen("resultScreen");
 
-  const history = getHistory();
-  const latest = history[history.length - 1];
+  const resultSummary = document.getElementById("resultSummary");
+
+  if (currentUser) {
+    const userLabel = currentUser.name || currentUser.username;
+    const resultUserText = document.getElementById("resultUserText");
+
+    if (resultUserText) {
+      resultUserText.textContent = `ログイン中：${userLabel} さん`;
+    }
+  }
+
+  resultSummary.innerHTML = "<p>成績を読み込み中です...</p>";
+
+  try {
+    const serverResults = await loadServerResults();
+    renderServerResults(serverResults);
+  } catch (error) {
+    console.error(error);
+    renderLocalResults();
+  }
+}
+
+async function loadServerResults() {
+  const response = await fetch("/api/results");
+  const data = await response.json();
+
+  if (!response.ok || !data.ok) {
+    throw new Error(data.message || "成績取得に失敗しました。");
+  }
+
+  return data.results || [];
+}
+
+function renderServerResults(results) {
+  const resultSummary = document.getElementById("resultSummary");
+  const userLabel = currentUser ? currentUser.name || currentUser.username : "";
 
   let html = "";
 
-  if (currentUser) {
-    html += `
-      <p><strong>対象ユーザー</strong></p>
-      <p>${currentUser.name || currentUser.username} さん</p>
-      <hr>
-    `;
+  html += `
+    <p><strong>対象ユーザー</strong></p>
+    <p>${userLabel} さん</p>
+    <hr>
+  `;
+
+  if (!results.length) {
+    html += `<p>まだサーバーに保存された成績はありません。</p>`;
+    resultSummary.innerHTML = html;
+    return;
   }
+
+  const latest = results[0];
+
+  html += `
+    <p><strong>直近の結果</strong></p>
+    <p>${latest.correct} / ${latest.total} 問 正解</p>
+    <p>正解率：${latest.percent}%</p>
+    <p>実施日時：${formatDate(latest.created_at)}</p>
+    <hr>
+  `;
+
+  const totalAnswered = results.reduce((sum, h) => sum + Number(h.total), 0);
+  const totalCorrect = results.reduce((sum, h) => sum + Number(h.correct), 0);
+  const totalPercent = totalAnswered
+    ? Math.round((totalCorrect / totalAnswered) * 100)
+    : 0;
+
+  html += `
+    <p><strong>累計成績</strong></p>
+    <p>実施回数：${results.length} 回</p>
+    <p>回答数：${totalAnswered} 問</p>
+    <p>正解数：${totalCorrect} 問</p>
+    <p>累計正解率：${totalPercent}%</p>
+    <hr>
+    <p><strong>履歴</strong></p>
+  `;
+
+  html += `<div class="history-list">`;
+
+  results.slice(0, 10).forEach((item, index) => {
+    html += `
+      <div class="history-item">
+        <p><strong>${index + 1}. ${formatDate(item.created_at)}</strong></p>
+        <p>${item.correct} / ${item.total} 問 正解　正解率：${item.percent}%</p>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+
+  resultSummary.innerHTML = html;
+}
+
+function renderLocalResults() {
+  const resultSummary = document.getElementById("resultSummary");
+  const history = getLocalHistory();
+  const latest = history[history.length - 1];
+  const userLabel = currentUser ? currentUser.name || currentUser.username : "";
+
+  let html = "";
+
+  html += `
+    <p><strong>対象ユーザー</strong></p>
+    <p>${userLabel} さん</p>
+    <hr>
+  `;
+
+  html += `
+    <p style="color:#a5281d;"><strong>サーバー成績の取得に失敗しました。</strong></p>
+    <p>ブラウザ内の成績を表示しています。</p>
+    <hr>
+  `;
 
   if (latest) {
     html += `
@@ -357,13 +487,11 @@ function showResultScreen() {
     `;
   }
 
-  document.getElementById("resultSummary").innerHTML = html;
+  resultSummary.innerHTML = html;
 }
 
 function saveAnswerResult(isCorrect, q) {
-  const logs = getAnswerLogs();
-
-  logs.push({
+  const answer = {
     date: new Date().toLocaleString("ja-JP"),
     username: currentUser ? currentUser.username : "",
     name: currentUser ? currentUser.name : "",
@@ -372,16 +500,28 @@ function saveAnswerResult(isCorrect, q) {
     questionNo: q.QuestionNo || "",
     category: q.Category || "",
     correct: isCorrect
-  });
+  };
+
+  currentQuizAnswers.push(answer);
+
+  const logs = getLocalAnswerLogs();
+  logs.push(answer);
 
   localStorage.setItem(getUserKey("takken_answer_logs"), JSON.stringify(logs.slice(-500)));
 }
 
-function getHistory() {
+function saveLocalQuizSummary(summary) {
+  const history = getLocalHistory();
+  history.push(summary);
+
+  localStorage.setItem(getUserKey("takken_history"), JSON.stringify(history.slice(-50)));
+}
+
+function getLocalHistory() {
   return JSON.parse(localStorage.getItem(getUserKey("takken_history")) || "[]");
 }
 
-function getAnswerLogs() {
+function getLocalAnswerLogs() {
   return JSON.parse(localStorage.getItem(getUserKey("takken_answer_logs")) || "[]");
 }
 
@@ -410,6 +550,20 @@ function shuffle(array) {
 
 function normalize(value) {
   return String(value || "").trim().replace(/\s/g, "");
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("ja-JP");
 }
 
 async function logout() {
