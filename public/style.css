@@ -297,3 +297,7 @@ h1 {
 .mini-logout-btn:hover {
   opacity: 0.9;
 }
+.main-btn.admin {
+  background: #4b276f;
+  color: white;
+}
