@@ -270,3 +270,30 @@ h1 {
 .logout-btn:hover {
   opacity: 0.9;
 }
+.user-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.mini-logout-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #b94a48;
+  color: white;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.mini-logout-btn:hover {
+  opacity: 0.9;
+}
