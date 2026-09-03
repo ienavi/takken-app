@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理者画面｜宅建アプリ</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Yu Gothic", "Meiryo", sans-serif;
+      background: #f5efe4;
+      color: #2f2a26;
+    }
+
+    header {
+      background: #34365f;
+      color: white;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .header-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .back-btn {
+      background: #d9b37c;
+      color: #2f2417;
+    }
+
+    .logout-btn {
+      background: #b94a48;
+      color: white;
+    }
+
+    main {
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: rgba(255, 252, 246, 0.96);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 22px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      color: #2c2b58;
+      font-size: 22px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .summary-box {
+      background: white;
+      border: 1px solid #eadfce;
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .summary-box .label {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .summary-box .value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #34365f;
+      margin-top: 6px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #eee2d0;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #ebe2d4;
+      color: #2f2417;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .loading,
+    .error {
+      padding: 16px;
+      border-radius: 10px;
+      background: white;
+      font-weight: bold;
+    }
+
+    .error {
+      color: #a5281d;
+    }
+
+    @media (max-width: 640px) {
+      main {
+        padding: 12px;
+      }
+
+      header {
+        padding: 14px;
+      }
+
+      header h1 {
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>管理者画面</h1>
+    <div class="header-buttons">
+      <button class="back-btn" onclick="location.href='/index.html'">メニューへ戻る</button>
+      <button class="logout-btn" onclick="logout()">ログアウト</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="status" class="loading">管理者データを読み込み中です...</div>
+
+    <section class="card">
+      <h2>全体サマリー</h2>
+      <div id="overallSummary" class="summary-grid"></div>
+    </section>
+
+    <section class="card">
+      <h2>ユーザー別成績</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ユーザー</th>
+              <th>ID</th>
+              <th>実施回数</th>
+              <th>回答数</th>
+              <th>正解数</th>
+              <th>累計正解率</th>
+              <th>最終実施日</th>
+            </tr>
+          </thead>
+          <tbody id="userSummaryBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>最近の実施履歴</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日時</th>
+              <th>ユーザー</th>
+              <th>ID</th>
+              <th>正解数</th>
+              <th>回答数</th>
+              <th>正解率</th>
+            </tr>
+          </thead>
+          <tbody id="recentResultsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>間違いが多い問題</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>順位</th>
+              <th>問題ID</th>
+              <th>年度</th>
+              <th>問番号</th>
+              <th>分野</th>
+              <th>間違い回数</th>
+            </tr>
+          </thead>
+          <tbody id="weakQuestionsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        const me = await fetch("/api/me");
+        const meData = await me.json();
+
+        if (!me.ok || !meData.ok) {
+          location.href = "/";
+          return;
+        }
+
+        if (meData.user.role !== "admin") {
+          document.getElementById("status").className = "error";
+          document.getElementById("status").textContent = "管理者のみ利用できます。";
+          return;
+        }
+
+        await loadAdminData();
+      } catch (error) {
+        showError("読み込みに失敗しました。");
+      }
+    });
+
+    async function loadAdminData() {
+      const response = await fetch("/api/admin/summary");
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        showError(data.message || "管理者データの取得に失敗しました。");
+        return;
+      }
+
+      document.getElementById("status").style.display = "none";
+
+      renderOverallSummary(data.usersSummary || []);
+      renderUserSummary(data.usersSummary || []);
+      renderRecentResults(data.recentResults || []);
+      renderWeakQuestions(data.weakQuestions || []);
+    }
+
+    function renderOverallSummary(users) {
+      const quizCount = users.reduce((sum, u) => sum + Number(u.quiz_count || 0), 0);
+      const totalAnswered = users.reduce((sum, u) => sum + Number(u.total_answered || 0), 0);
+      const totalCorrect = users.reduce((sum, u) => sum + Number(u.total_correct || 0), 0);
+      const percent = totalAnswered
+        ? Math.round((totalCorrect / totalAnswered) * 100)
+        : 0;
+
+      document.getElementById("overallSummary").innerHTML = `
+        <div class="summary-box">
+          <div class="label">利用ユーザー数</div>
+          <div class="value">${users.length}</div>
+        </div>
+        <div class="summary-box">
+          <div class="label">総実施回数</div>
+          <div class="value">${quizCount}</div>
+        </div>
+        <div class="summary-box">
+          <div class="label">総回答数</div>
+          <div class="value">${totalAnswered}</div>
+        </div>
+        <div class="summary-box">
+          <div class="label">全体正解率</div>
+          <div class="value">${percent}%</div>
+        </div>
+      `;
+    }
+
+    function renderUserSummary(users) {
+      const body = document.getElementById("userSummaryBody");
+
+      if (!users.length) {
+        body.innerHTML = `<tr><td colspan="7">まだ成績がありません。</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = users.map(user => `
+        <tr>
+          <td>${escapeHtml(user.name || user.username)}</td>
+          <td>${escapeHtml(user.username)}</td>
+          <td>${Number(user.quiz_count || 0)}</td>
+          <td>${Number(user.total_answered || 0)}</td>
+          <td>${Number(user.total_correct || 0)}</td>
+          <td>${Number(user.average_percent || 0)}%</td>
+          <td>${formatDate(user.last_played_at)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderRecentResults(results) {
+      const body = document.getElementById("recentResultsBody");
+
+      if (!results.length) {
+        body.innerHTML = `<tr><td colspan="6">まだ実施履歴がありません。</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = results.map(result => `
+        <tr>
+          <td>${formatDate(result.created_at)}</td>
+          <td>${escapeHtml(result.name || result.username)}</td>
+          <td>${escapeHtml(result.username)}</td>
+          <td>${Number(result.correct || 0)}</td>
+          <td>${Number(result.total || 0)}</td>
+          <td>${Number(result.percent || 0)}%</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderWeakQuestions(items) {
+      const body = document.getElementById("weakQuestionsBody");
+
+      if (!items.length) {
+        body.innerHTML = `<tr><td colspan="6">まだ間違いデータがありません。</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = items.map((item, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(item.question_id || "")}</td>
+          <td>${escapeHtml(item.year || "")}</td>
+          <td>${escapeHtml(item.question_no || "")}</td>
+          <td>${escapeHtml(item.category || "")}</td>
+          <td>${Number(item.wrong_count || 0)}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function logout() {
+      const ok = confirm("ログアウトしますか？");
+
+      if (!ok) {
+        return;
+      }
+
+      await fetch("/api/logout", {
+        method: "POST"
+      });
+
+      location.href = "/";
+    }
+
+    function showError(message) {
+      const status = document.getElementById("status");
+      status.className = "error";
+      status.textContent = message;
+    }
+
+    function formatDate(value) {
+      if (!value) {
+        return "";
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+
+      return date.toLocaleString("ja-JP");
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  </script>
+</body>
+</html>
